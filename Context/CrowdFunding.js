@@ -90,4 +90,97 @@ export const CrowdFundingProvider=({children})=>{
 
         return userData;
     };
-}
+
+
+
+    const donate = async (pId,amount)=>{
+        const Web3Modal = new Wenb3Modal();
+        const connection = await Web3Modal.connect();
+        const provider = new ethers.providers.Web3Provider(connection);
+        const signer = provider.getSigner();
+        const contract = fetchContract(signer);
+
+        const campaignData = await contract.donateToCampaign(pId, {
+            value:ethers.utils.parseEther(amount),
+        });
+
+        await campaignData.wait();
+        location.reload();
+
+        return campaignData;
+    };
+
+    const getDonations = async (pId) =>{
+        const provider = new ethers.providers.JsonRpcProvider();
+        const contract = fetchContract(provider);
+
+        const donations = await contract.getDonators(pId);
+        const numberOfDonations = donations[0].length;
+
+        const parsedDonations = [];
+
+        for (let i=0;i<numberOfDonations;i++){
+            parsedDonations.push({
+                donator: donations[0][i],
+                donation: ethers.utils.formatEther(donations[1][i].toString()),
+            });
+        }
+
+        return parsedDonations;
+    };
+    
+    //---CHECK IF WALLET IS CONNECTED
+    const checkIfWalletConnected = async () =>{
+        try{
+            if(!window.ethereum)
+                return setOpenError(true), setError("Install MetaMask");
+
+            const accounts = await window.ethereum.request({
+                method: "eth_accounts",
+            });
+
+            if(accounts.length){
+                setCurrentAccount(accounts[0]);
+            }else{
+                console.log("No Account Found");
+            }
+        } catch (error){
+            console.log("Something wrong while connecting to wallet");
+        }
+    };
+    
+    useEffect(() => {
+        checkIfWalletConnected();
+    }, []);
+
+    //---CONNECT WALLET FUNCTION
+    const connectWallet = async () =>{
+        try{
+            if(!window.ethereum) return console.log("Install MetaMask");
+            
+            const accounts = await window.ethereum.request({
+                method: "eth_requestAccounts",
+            });
+            setCurrentAccount(accounts[0]);
+        } catch (error){
+            console.log("Error while connecting to wallet");
+        }
+    };
+
+    return(
+        <CrowdFundingContext.Provider
+        value={{
+            titleData,
+            currentAccount,
+            createCampiagn,
+            getCampaigns,
+            getUserCampaigns,
+            donate,
+            getDonations,
+            connectWallet,
+        }}
+        >
+            {children}
+            </CrowdFundingContext.Provider>
+    );
+};
